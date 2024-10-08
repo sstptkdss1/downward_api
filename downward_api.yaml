@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: flask-downward-api
+spec:
+  containers:
+  - name: flask-container
+    image: python:3.9
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    command: ["/bin/sh", "-c"]
+    args:
+    - pip install -r /app/requirements.txt && python3 /app/app.py
+    volumeMounts:
+    - name: app-volume
+      mountPath: /app
+  volumes:
+  - name: app-volume
+    configMap:
+      name: flask-app-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-app-config
+data:
+  app.py: |
+    from flask import Flask
+    import os
+
+    app = Flask(__name__)
+
+    @app.route("/")
+    def hello():
+        pod_name = os.getenv('POD_NAME', '알 수 없음')
+        pod_namespace = os.getenv('POD_NAMESPACE', '알 수 없음')
+        node_name = os.getenv('NODE_NAME', '알 수 없음')
+
+        return f"""
+        Hello World!<br>
+        Pod 이름: {pod_name}<br>
+        네임스페이스: {pod_namespace}<br>
+        노드 이름: {node_name}
+        """
+
+    if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=8080, debug=True)
+  requirements.txt: |
+    Flask==2.0.1
+~
+
